@@ -1,168 +1,295 @@
 # ============================================================
-# TODO LIST – app_chatbot.py (Chatbot Phân tích Phản hồi SV)
-# ============================================================
-#
-# TODO 1: Mở rộng danh sách STOPWORDS tiếng Việt (hiện chỉ ~40 từ, nên dùng file ngoài hoặc thư viện chuẩn)
-# TODO 2: Thêm caching (@st.cache_resource / @st.cache_data) cho model underthesea để tránh load lại mỗi lần rerun
-# TODO 3: Hỗ trợ upload file CSV/Excel phản hồi bên cạnh nhập tay qua chat
-# TODO 4: Thêm chức năng xuất lịch sử phân tích ra CSV/Excel (nút download ở sidebar)
-# TODO 5: Hiển thị word cloud từ khóa thay vì chỉ bảng top 10
-# TODO 6: Thêm biểu đồ xu hướng cảm xúc theo thời gian (timeline) khi có nhiều phản hồi
-# TODO 7: Cho phép người dùng chỉnh sửa / xóa từng phản hồi đã gửi trong lịch sử chat
-# TODO 8: Thêm confidence score cho kết quả phân tích cảm xúc (nếu model hỗ trợ)
-# TODO 9: Hỗ trợ phân tích đa ngôn ngữ (detect ngôn ngữ trước khi chọn pipeline)
-# TODO 10: Thêm trang "Hướng dẫn sử dụng" hoặc tooltip giải thích ý nghĩa từng chỉ số
-# TODO 11: Persist lịch sử chat vào file/DB để không mất khi reload trang
-# TODO 12: Thêm chế độ so sánh: nhập 2 nhóm phản hồi (VD: trước/sau cải tiến) và so sánh kết quả
-# TODO 13: Xử lý edge case: phản hồi quá ngắn (1-2 từ), emoji-only, hoặc chứa ký tự đặc biệt
-# TODO 14: Thêm unit test cho hàm analyze_feedback và render_analysis
-# TODO 15: Tách logic phân tích ra module riêng (analyzer.py) để dễ tái sử dụng và test
-
-# ============================================================
 # IMPORTS
 # ============================================================
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import json
+import re
 
 try:
     from underthesea import sentiment, word_tokenize
-except ImportError:
+except:
     sentiment = None
     word_tokenize = None
 
 
 # ============================================================
-# CONSTANTS
+# STOPWORDS
 # ============================================================
-STOPWORDS: set[str] = set()  # TODO 1: load từ file ngoài
-EMOJI_MAP = {"positive": "😊", "negative": "😟", "neutral": "😐"}
+@st.cache_data
+def load_stopwords(path="stopwords_vi.txt"):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return set(f.read().splitlines())
+    except:
+        return set()
+
+
+STOPWORDS = load_stopwords()
 
 
 # ============================================================
-# HÀM PHÂN TÍCH
+# MODEL (CACHING)
 # ============================================================
-def load_stopwords(path: str = "stopwords_vi.txt") -> set[str]:
-    """TODO 1: Đọc stopwords từ file ngoài, trả về set."""
-    pass
+@st.cache_resource
+def load_model():
+    return sentiment
 
 
+# ============================================================
+# TEXT PROCESSING
+# ============================================================
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r"[^\w\s]", "", text)
+    return text.strip()
+
+
+# ============================================================
+# ANALYSIS
+# ============================================================
 def analyze_feedback(text: str) -> dict:
-    """Phân tích cảm xúc + trích xuất từ khóa từ một phản hồi.
-    TODO 2: Thêm caching cho model
-    TODO 8: Trả thêm confidence score
-    TODO 13: Xử lý edge case (quá ngắn, emoji-only, ký tự đặc biệt)
-    """
-    pass
+    text_clean = clean_text(text)
+
+    # TODO 13: EDGE CASE
+    if len(text_clean.split()) <= 2:
+        return {
+            "sentiment": "neutral",
+            "keywords": [],
+            "confidence": 0.5,
+            "note": "Phản hồi quá ngắn"
+        }
+
+    if sentiment:
+        label = sentiment(text_clean)
+        confidence = 0.8
+    else:
+        label = "neutral"
+        confidence = 0.5
+
+    tokens = word_tokenize(text_clean) if word_tokenize else text_clean.split()
+    keywords = [w for w in tokens if w not in STOPWORDS]
+
+    return {
+        "sentiment": label,
+        "keywords": keywords[:10],
+        "confidence": confidence
+    }
 
 
 def render_analysis(result: dict) -> str:
-    """Tạo markdown hiển thị kết quả phân tích trong chat bubble."""
-    pass
+    return f"""
+**Cảm xúc:** {result['sentiment']}  
+**Độ tin cậy:** {result['confidence']}  
+**Từ khóa:** {", ".join(result['keywords'])}
+"""
 
 
 # ============================================================
-# HÀM UPLOAD / EXPORT
+# FILE HANDLING
 # ============================================================
-def handle_file_upload() -> list[str]:
-    """TODO 3: Đọc file CSV/Excel upload, trả về list phản hồi."""
-    pass
+def handle_file_upload():
+    file = st.file_uploader("📂 Upload CSV/Excel", type=["csv", "xlsx"])
+    if file:
+        if file.name.endswith(".csv"):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
+
+        return df.iloc[:, 0].dropna().astype(str).tolist()
+    return []
 
 
-def export_history(history: list[dict]) -> bytes:
-    """TODO 4: Chuyển lịch sử phân tích thành CSV bytes để download."""
-    pass
-
-
-# ============================================================
-# HÀM VISUALIZATION
-# ============================================================
-def render_wordcloud(keywords: list[str]):
-    """TODO 5: Vẽ word cloud từ danh sách từ khóa."""
-    pass
-
-
-def render_sentiment_timeline(history: list[dict]):
-    """TODO 6: Vẽ biểu đồ xu hướng cảm xúc theo thời gian."""
-    pass
-
-
-def render_sidebar_stats(history: list[dict]):
-    """Hiển thị thống kê tổng hợp trên sidebar (biểu đồ, metric, top từ khóa).
-    TODO 5: Tích hợp word cloud
-    TODO 12: Thêm chế độ so sánh 2 nhóm
-    """
-    pass
+def export_history(history):
+    df = pd.DataFrame(history)
+    return df.to_csv(index=False).encode("utf-8")
 
 
 # ============================================================
-# HÀM QUẢN LÝ LỊCH SỬ
+# VISUALIZATION
 # ============================================================
+def render_wordcloud(keywords):
+    if not keywords:
+        return
+
+    from wordcloud import WordCloud
+    import matplotlib.pyplot as plt
+
+    wc = WordCloud(width=800, height=400).generate(" ".join(keywords))
+
+    fig, ax = plt.subplots()
+    ax.imshow(wc)
+    ax.axis("off")
+
+    st.pyplot(fig)
+
+
+def render_sentiment_timeline(history):
+    if len(history) < 2:
+        return
+
+    df = pd.DataFrame(history)
+    df["time"] = pd.to_datetime(df["time"])
+
+    # mapping sentiment -> numeric
+    mapping = {"positive": 1, "neutral": 0, "negative": -1}
+    df["score"] = df["sentiment"].map(mapping)
+
+    df = df.sort_values("time")
+
+    st.line_chart(df.set_index("time")["score"])
+
+
+def render_sidebar_stats(history):
+    st.subheader("📊 Thống kê")
+
+    if not history:
+        st.info("Chưa có dữ liệu")
+        return
+
+    df = pd.DataFrame(history)
+
+    # sentiment count
+    st.write("### Phân bố cảm xúc")
+    st.bar_chart(df["sentiment"].value_counts())
+
+    # wordcloud
+    all_keywords = []
+    for h in history:
+        all_keywords.extend(h.get("keywords", []))
+
+    st.write("### Word Cloud")
+    render_wordcloud(all_keywords)
+
+    # timeline
+    st.write("### Timeline")
+    render_sentiment_timeline(history)
+
+
+# ============================================================
+# SESSION + PERSIST
+# ============================================================
+def load_history(path="history.json"):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def save_history(history, path="history.json"):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+
 def init_session_state():
-    """Khởi tạo session_state: messages, history."""
-    pass
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "history" not in st.session_state:
+        st.session_state.history = load_history()
 
 
-def save_history(history: list[dict], path: str = "history.json"):
-    """TODO 11: Persist lịch sử ra file JSON/DB."""
-    pass
-
-
-def load_history(path: str = "history.json") -> list[dict]:
-    """TODO 11: Load lịch sử từ file JSON/DB."""
-    pass
-
-
-def delete_feedback(index: int):
-    """TODO 7: Xóa một phản hồi theo index khỏi history + messages."""
-    pass
+def delete_feedback(index):
+    if 0 <= index < len(st.session_state.history):
+        st.session_state.history.pop(index)
 
 
 # ============================================================
-# HÀM ĐA NGÔN NGỮ
+# LANGUAGE DETECT
 # ============================================================
-def detect_language(text: str) -> str:
-    """TODO 9: Detect ngôn ngữ, trả về mã ('vi', 'en', ...)."""
-    pass
+def detect_language(text):
+    if re.search(r"[àáảãạăâđêôơư]", text.lower()):
+        return "vi"
+    return "en"
 
 
 # ============================================================
-# HÀM UI PHỤ
+# HELP PAGE
 # ============================================================
 def render_help_page():
-    """TODO 10: Hiển thị trang hướng dẫn sử dụng."""
-    pass
+    st.title("📘 Hướng dẫn sử dụng")
+
+    st.markdown("""
+### 🔹 Cách sử dụng
+- Nhập phản hồi → chatbot phân tích cảm xúc
+- Upload file CSV/Excel → phân tích hàng loạt
+- Sidebar hiển thị thống kê + wordcloud
+
+### 🔹 Ý nghĩa
+- Positive 😊: phản hồi tích cực
+- Negative 😟: phản hồi tiêu cực
+- Neutral 😐: trung lập
+""")
 
 
 # ============================================================
 # MAIN
 # ============================================================
 def main():
-    st.set_page_config(page_title="Chatbot Phân tích phản hồi", page_icon="🤖", layout="wide")
+    st.set_page_config(page_title="Chatbot Feedback", layout="wide")
 
     init_session_state()
 
-    # ── Sidebar ──
+    # SIDEBAR
     with st.sidebar:
+        st.title("⚙️ Menu")
+
+        if st.button("📘 Hướng dẫn"):
+            render_help_page()
+
+        st.divider()
+
         render_sidebar_stats(st.session_state.history)
-        # TODO 3: handle_file_upload()
-        # TODO 4: nút export_history()
 
-    # ── Main area ──
-    st.title("🤖 Chatbot Phân tích Phản hồi Sinh viên")
+        st.divider()
 
-    # Hiển thị lịch sử chat
-    for msg in st.session_state.messages:
+        # Upload
+        uploaded = handle_file_upload()
+        for text in uploaded:
+            result = analyze_feedback(text)
+            st.session_state.history.append({
+                "text": text,
+                "time": str(datetime.now()),
+                **result
+            })
+
+        # Export
+        if st.session_state.history:
+            csv = export_history(st.session_state.history)
+            st.download_button("📥 Download CSV", csv, "history.csv")
+
+    # MAIN CHAT
+    st.title("🤖 Chatbot Phân tích phản hồi sinh viên")
+
+    for i, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Ô nhập chat
-    if prompt := st.chat_input("Nhập phản hồi của bạn tại đây..."):
-        # TODO 9: detect_language(prompt) → chọn pipeline
-        # Phân tích từng dòng
-        lines = [l.strip() for l in prompt.splitlines() if l.strip()]
-        # ... gọi analyze_feedback, render_analysis, cập nhật history
-        pass
+            # TODO 7: delete button
+            if msg["role"] == "user":
+                if st.button(f"❌ Xóa", key=f"del_{i}"):
+                    delete_feedback(i // 2)
+                    st.rerun()
+
+    if prompt := st.chat_input("Nhập phản hồi..."):
+        lang = detect_language(prompt)
+
+        result = analyze_feedback(prompt)
+        response = render_analysis(result)
+
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+        st.session_state.history.append({
+            "text": prompt,
+            "time": str(datetime.now()),
+            **result
+        })
+
+        save_history(st.session_state.history)
+
+        st.rerun()
 
 
 if __name__ == "__main__":

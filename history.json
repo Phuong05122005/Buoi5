@@ -1,0 +1,43 @@
+[
+  {
+    "text": "xin chào",
+    "time": "2026-04-19 17:35:54.892502",
+    "sentiment": "neutral",
+    "keywords": [],
+    "confidence": 0.5,
+    "note": "Phản hồi quá ngắn"
+  },
+  {
+    "text": "hôm nay trời đẹp",
+    "time": "2026-04-19 17:36:21.847715",
+    "sentiment": "positive",
+    "keywords": [
+      "hôm nay",
+      "trời",
+      "đẹp"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "text": "app rất tệ ",
+    "time": "2026-04-19 17:40:20.841094",
+    "sentiment": "negative",
+    "keywords": [
+      "app",
+      "rất",
+      "tệ"
+    ],
+    "confidence": 0.8
+  },
+  {
+    "text": "tôi thích cậu",
+    "time": "2026-04-19 17:40:40.407510",
+    "sentiment": "positive",
+    "keywords": [
+      "tôi",
+      "thích",
+      "cậu"
+    ],
+    "confidence": 0.8
+  }
+]
