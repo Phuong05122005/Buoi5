@@ -113,16 +113,19 @@ def render_wordcloud(keywords):
     if not keywords:
         return
 
-    from wordcloud import WordCloud
-    import matplotlib.pyplot as plt
+    try:
+        from wordcloud import WordCloud
+        import matplotlib.pyplot as plt
 
-    wc = WordCloud(width=800, height=400).generate(" ".join(keywords))
+        wc = WordCloud(width=800, height=400).generate(" ".join(keywords))
 
-    fig, ax = plt.subplots()
-    ax.imshow(wc)
-    ax.axis("off")
+        fig, ax = plt.subplots()
+        ax.imshow(wc)
+        ax.axis("off")
 
-    st.pyplot(fig)
+        st.pyplot(fig)
+    except ImportError:
+        st.warning("📊 WordCloud module chưa được cài đặt. Vui lòng chờ Streamlit Cloud cập nhật...")
 
 
 def render_sentiment_timeline(history):
